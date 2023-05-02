@@ -6,4 +6,5 @@
     <string name="nav_maps">Mapas</string>
     <string name="drawer_open">Abrir Menu</string>
     <string name="drawer_close">Cerrar menu</string>
+    <string name="nav_polygon_map">Area Restringida</string>
 </resources>

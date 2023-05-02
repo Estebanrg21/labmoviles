@@ -31,6 +31,9 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
+    buildFeatures {
+        viewBinding = true
+    }
 }
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-kapt'

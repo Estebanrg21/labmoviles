@@ -5,12 +5,17 @@
         <item
             android:id="@+id/home"
             android:title="@string/nav_home"
-            android:icon="@android:drawable/ic_menu_delete" />
+            android:icon="@android:drawable/ic_menu_compass" />
         <item
             android:id="@+id/maps"
             android:title="@string/nav_maps"
             android:icon="@android:drawable/ic_menu_mapmode" />
-
             />
+
+        <item
+            android:id="@+id/polygon_map"
+            android:title="@string/nav_polygon_map"
+            android:icon="@android:drawable/ic_dialog_map" />
+        />
     </group>
 </menu>

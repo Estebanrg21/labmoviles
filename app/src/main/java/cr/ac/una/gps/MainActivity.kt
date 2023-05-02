@@ -54,6 +54,9 @@ class MainActivity : AppCompatActivity(),NavigationView.OnNavigationItemSelected
                 fragment = MapsFragment()
 
             }
+            R.id.polygon_map -> {
+                fragment = AreaRestringidaFragment()
+            }
         }
         supportFragmentManager
             .beginTransaction()

@@ -9,7 +9,7 @@ import cr.ac.una.roomdb.UbicacionDao
 import cr.ac.una.roomdb.converter.Converters
 import cr.ac.una.roomdb.entity.Ubicacion
 
-@Database(entities = [Ubicacion::class], version = 2)
+@Database(entities = [Ubicacion::class], version = 3)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun ubicacionDao(): UbicacionDao
@@ -24,7 +24,7 @@ abstract class AppDatabase : RoomDatabase() {
                         context.applicationContext,
                         AppDatabase::class.java,
                         "ubicaciones-database"
-                    ).build()
+                    ).fallbackToDestructiveMigration().build()
                 }
             }
             return instance!!

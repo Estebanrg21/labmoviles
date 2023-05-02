@@ -1,16 +1,12 @@
 package cr.ac.una.gps
 
-import android.Manifest
 import android.Manifest.permission.ACCESS_COARSE_LOCATION
 import android.Manifest.permission.ACCESS_FINE_LOCATION
-import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.content.pm.PackageManager.PERMISSION_GRANTED
-import android.location.Location
 import androidx.fragment.app.Fragment
 
 import android.os.Bundle
@@ -21,12 +17,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.lifecycle.lifecycleScope
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
 
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
@@ -41,7 +34,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.*
 
-class MapsFragment : Fragment() {
+class MapsFragment : FragmentWithLocationPermissions() {
     private lateinit var locationReceiver: BroadcastReceiver
     private lateinit var ubicacionDao: UbicacionDao
     private lateinit var map: GoogleMap
@@ -81,8 +74,6 @@ class MapsFragment : Fragment() {
             }
         }
         context?.registerReceiver(locationReceiver, IntentFilter("ubicacionActualizada"))
-
-
     }
 
     override fun onResume() {
@@ -97,36 +88,19 @@ class MapsFragment : Fragment() {
         context?.unregisterReceiver(locationReceiver)
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
-        if (requestCode == 1) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PERMISSION_GRANTED) {
-                if (checkPermissions()) {
-                    iniciaServicio()
-                }
-            } else {
-                // Permiso denegado, maneja la situación de acuerdo a tus necesidades
-            }
-        }
-    }
-
     private fun iniciaServicio() {
         if (checkPermissions()) {
             val intent = Intent(context, LocationService::class.java)
             context?.startService(intent)
         } else {
-            ActivityCompat.requestPermissions(
-                requireActivity(),
-                arrayOf(ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION),
-                1
-            )
+            askForLocationPermissions()
         }
     }
 
-    @SuppressLint("MissingPermission")
+    override fun onLocationPermissionsGranted() {
+        iniciaServicio()
+    }
+
     private fun mapReadyCallback(googleMap: GoogleMap) {
         map = googleMap
         map.uiSettings.isZoomControlsEnabled = true
@@ -160,7 +134,8 @@ class MapsFragment : Fragment() {
             latitud = lat,
             longitud = lng,
             fecha = Date(),
-            isInPoligon = isLocationInsidePolygon(LatLng(lat, lng))
+            isInPoligon = isLocationInsidePolygon(LatLng(lat, lng)),
+            isPointPolygon = false
         )
         lifecycleScope.launch {
             withContext(Dispatchers.IO) {
@@ -184,14 +159,4 @@ class MapsFragment : Fragment() {
         return map.addPolygon(polygonOptions)
     }
 
-    private fun checkPermissions(): Boolean {
-        return checkSelfPermission(
-            requireContext(),
-            ACCESS_FINE_LOCATION
-        ) == PERMISSION_GRANTED
-                && checkSelfPermission(
-            requireContext(),
-            ACCESS_COARSE_LOCATION
-        ) == PERMISSION_GRANTED
-    }
 }
