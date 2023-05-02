@@ -1,12 +1,15 @@
 package cr.ac.una.gps
 
 import android.Manifest
+import android.Manifest.permission.ACCESS_COARSE_LOCATION
+import android.Manifest.permission.ACCESS_FINE_LOCATION
 import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.location.Location
 import androidx.fragment.app.Fragment
 
@@ -16,6 +19,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
@@ -26,6 +30,9 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.Polygon
+import com.google.android.gms.maps.model.PolygonOptions
+import com.google.maps.android.PolyUtil
 import cr.ac.una.roomdb.UbicacionDao
 import cr.ac.una.roomdb.db.AppDatabase
 import cr.ac.una.roomdb.entity.Ubicacion
@@ -38,61 +45,10 @@ class MapsFragment : Fragment() {
     private lateinit var locationReceiver: BroadcastReceiver
     private lateinit var ubicacionDao: UbicacionDao
     private lateinit var map: GoogleMap
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var polygon: Polygon
 
-    @SuppressLint("MissingPermission")
-    private val callback = OnMapReadyCallback { googleMap ->
-        /**
-         * Manipulates the map once available.
-         * This callback is triggered when the map is ready to be used.
-         * This is where we can add markers or lines, add listeners or move the camera.
-         * In this case, we just add a marker near Sydney, Australia.
-         * If Google Play services is not installed on the device, the user will be prompted to
-         * install it inside the SupportMapFragment. This method will only be triggered once the
-         * user has installed Google Play services and returned to the app.
-         */
-
-        val sydney = LatLng(-34.0, 151.0)
-        map = googleMap
-        if (ActivityCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-
-        } else {
-            lifecycleScope.launch {
-                withContext(Dispatchers.IO) {
-                    ubicacionDao.getAll()?.forEach {
-                        if (it != null) {
-                            withContext(Dispatchers.Main) {
-                                map.addMarker(
-                                    MarkerOptions().position(LatLng(it.latitud, it.longitud))
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
-                // Ubicación obtenida con éxito
-                if (location != null) {
-                    val currentLatLng = LatLng(location.latitude, location.longitude)
-                    map.addMarker(
-                        MarkerOptions().position(currentLatLng)
-                    )
-                    map.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 15f))
-                }
-            }
-        }
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
+    private companion object CONSTANTS {
+        val DEFAULT_MAP_ZOOM: Float = 15f
     }
 
     override fun onCreateView(
@@ -106,7 +62,7 @@ class MapsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val mapFragment = childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment?
-        mapFragment?.getMapAsync(callback)
+        mapFragment?.getMapAsync(this::mapReadyCallback)
         iniciaServicio()
         ubicacionDao = AppDatabase.getInstance(activity as AppCompatActivity).ubicacionDao()
         locationReceiver = object : BroadcastReceiver() {
@@ -119,8 +75,8 @@ class MapsFragment : Fragment() {
                     MarkerOptions()
                         .position(newLatLng)
                 )
-                map.moveCamera(CameraUpdateFactory.newLatLngZoom(newLatLng, 15f))
-                println(latitud.toString() + "    " + longitud)
+                map.moveCamera(CameraUpdateFactory.newLatLngZoom(newLatLng, DEFAULT_MAP_ZOOM))
+                println("" + latitud + "    " + longitud)
 
             }
         }
@@ -147,16 +103,8 @@ class MapsFragment : Fragment() {
         grantResults: IntArray
     ) {
         if (requestCode == 1) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if (ActivityCompat.checkSelfPermission(
-                        requireContext(),
-                        Manifest.permission.ACCESS_FINE_LOCATION
-                    ) == PackageManager.PERMISSION_GRANTED
-                    && ActivityCompat.checkSelfPermission(
-                        requireContext(),
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    ) == PackageManager.PERMISSION_GRANTED
-                ) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PERMISSION_GRANTED) {
+                if (checkPermissions()) {
                     iniciaServicio()
                 }
             } else {
@@ -166,25 +114,43 @@ class MapsFragment : Fragment() {
     }
 
     private fun iniciaServicio() {
-        if (ActivityCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                requireActivity(),
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                ),
-                1
-            )
-        } else {
+        if (checkPermissions()) {
             val intent = Intent(context, LocationService::class.java)
             context?.startService(intent)
+        } else {
+            ActivityCompat.requestPermissions(
+                requireActivity(),
+                arrayOf(ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION),
+                1
+            )
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun mapReadyCallback(googleMap: GoogleMap) {
+        map = googleMap
+        map.uiSettings.isZoomControlsEnabled = true
+        polygon = createPolygon()
+        if (checkPermissions()) {
+            showStoredLocations()
+        }
+    }
+
+    private fun showStoredLocations() {
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                ubicacionDao.getAll()?.forEach { ubicacion ->
+                    if (ubicacion != null) {
+                        withContext(Dispatchers.Main) {
+                            map.addMarker(
+                                MarkerOptions().position(
+                                    LatLng(ubicacion.latitud, ubicacion.longitud)
+                                )
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -193,17 +159,39 @@ class MapsFragment : Fragment() {
             id = null,
             latitud = lat,
             longitud = lng,
-            fecha = Date()
+            fecha = Date(),
+            isInPoligon = isLocationInsidePolygon(LatLng(lat, lng))
         )
-        insertEntity(entity)
-    }
-
-    private fun insertEntity(entity: Ubicacion) {
         lifecycleScope.launch {
             withContext(Dispatchers.IO) {
                 ubicacionDao.insert(entity)
             }
         }
+    }
 
+
+    private fun isLocationInsidePolygon(location: LatLng): Boolean {
+        return polygon != null && PolyUtil.containsLocation(location, polygon?.points, true)
+    }
+
+    private fun createPolygon(): Polygon {
+        val polygonOptions = PolygonOptions()
+        polygonOptions.add(LatLng(10.1584697, -84.2370056))
+        polygonOptions.add(LatLng(9.9407624, -84.3935608))
+        polygonOptions.add(LatLng(9.6944838, -83.9335083))
+        polygonOptions.add(LatLng(10.0597759, -83.7769531))
+        polygonOptions.add(LatLng(10.1584697, -84.2370056))
+        return map.addPolygon(polygonOptions)
+    }
+
+    private fun checkPermissions(): Boolean {
+        return checkSelfPermission(
+            requireContext(),
+            ACCESS_FINE_LOCATION
+        ) == PERMISSION_GRANTED
+                && checkSelfPermission(
+            requireContext(),
+            ACCESS_COARSE_LOCATION
+        ) == PERMISSION_GRANTED
     }
 }

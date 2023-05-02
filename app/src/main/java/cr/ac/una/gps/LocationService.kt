@@ -19,6 +19,10 @@ class LocationService : Service() {
     private lateinit var locationManager: LocationManager
     private lateinit var locationListener: LocationListener
 
+    private companion object CONSTANTS {
+        val MAX_LOCATION_UPDATE_INTERVAL : Long = 10000
+    }
+
     override fun onCreate() {
         super.onCreate()
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -38,11 +42,14 @@ class LocationService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // Comenzar a recibir actualizaciones de ubicación cada 10 segundos
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-            ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+            && ActivityCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return super.onStartCommand(intent, flags, startId)
         }
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10000, 0f, locationListener)
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
+                MAX_LOCATION_UPDATE_INTERVAL, 0f, locationListener)
             return super.onStartCommand(intent, flags, startId)
 
     }

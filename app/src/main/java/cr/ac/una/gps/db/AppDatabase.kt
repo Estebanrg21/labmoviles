@@ -9,7 +9,7 @@ import cr.ac.una.roomdb.UbicacionDao
 import cr.ac.una.roomdb.converter.Converters
 import cr.ac.una.roomdb.entity.Ubicacion
 
-@Database(entities = [Ubicacion::class], version = 1)
+@Database(entities = [Ubicacion::class], version = 2)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun ubicacionDao(): UbicacionDao
