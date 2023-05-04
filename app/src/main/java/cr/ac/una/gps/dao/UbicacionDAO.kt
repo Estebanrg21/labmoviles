@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
 import cr.ac.una.roomdb.entity.Ubicacion
+import java.util.Date
 
 
 @Dao
@@ -33,6 +34,9 @@ interface UbicacionDao {
 
     @Query("SELECT * FROM ubicacion WHERE isPointPolygon=1")
     fun getAllPolygonPoints(): List<Ubicacion?>?
-    @Query("SELECT * FROM ubicacion")
+    @Query("SELECT * FROM ubicacion WHERE isPointPolygon=0")
     fun getAll(): List<Ubicacion?>?
+
+    @Query("SELECT * FROM ubicacion WHERE DATE(fecha/1000, 'unixepoch')=DATE(:date/1000, 'unixepoch')")
+    fun getAllByDate(date: Long): List<Ubicacion?>?
 }
