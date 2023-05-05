@@ -17,5 +17,11 @@
             android:title="@string/nav_polygon_map"
             android:icon="@android:drawable/ic_dialog_map" />
         />
+
+        <item
+            android:id="@+id/emergency_phone"
+            android:title="@string/nav_phone"
+            android:icon="@android:drawable/ic_menu_call" />
+        />
     </group>
 </menu>

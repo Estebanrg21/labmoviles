@@ -14,6 +14,7 @@ import com.google.android.material.navigation.NavigationView
 class MainActivity : AppCompatActivity(),NavigationView.OnNavigationItemSelectedListener {
 
     lateinit var  drawerLayout : DrawerLayout
+    public var telefonoEmergencia: Int? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -57,6 +58,10 @@ class MainActivity : AppCompatActivity(),NavigationView.OnNavigationItemSelected
             R.id.polygon_map -> {
                 fragment = AreaRestringidaFragment()
             }
+
+            R.id.emergency_phone -> {
+                fragment = TelefonoEmergenciaFragment()
+            }
         }
         supportFragmentManager
             .beginTransaction()
@@ -65,4 +70,6 @@ class MainActivity : AppCompatActivity(),NavigationView.OnNavigationItemSelected
         drawerLayout.closeDrawer(GravityCompat.START)
         return true
     }
+
+
 }

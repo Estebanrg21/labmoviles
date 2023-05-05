@@ -37,6 +37,6 @@ interface UbicacionDao {
     @Query("SELECT * FROM ubicacion WHERE isPointPolygon=0")
     fun getAll(): List<Ubicacion?>?
 
-    @Query("SELECT * FROM ubicacion WHERE DATE(fecha/1000, 'unixepoch')=DATE(:date/1000, 'unixepoch')")
+    @Query("SELECT * FROM ubicacion WHERE DATE(fecha/1000, 'unixepoch')=DATE(:date/1000, 'unixepoch') AND isPointPolygon=0")
     fun getAllByDate(date: Long): List<Ubicacion?>?
 }

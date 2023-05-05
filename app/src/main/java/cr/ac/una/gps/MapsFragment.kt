@@ -6,7 +6,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.content.pm.PackageManager.PERMISSION_GRANTED
+import android.net.Uri
 import androidx.fragment.app.Fragment
 
 import android.os.Bundle
@@ -17,17 +19,14 @@ import android.widget.Button
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.lifecycle.lifecycleScope
 
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.Marker
-import com.google.android.gms.maps.model.MarkerOptions
-import com.google.android.gms.maps.model.Polygon
-import com.google.android.gms.maps.model.PolygonOptions
+import com.google.android.gms.maps.model.*
 import com.google.android.material.datepicker.MaterialDatePicker
 import com.google.maps.android.PolyUtil
 import cr.ac.una.roomdb.UbicacionDao
@@ -46,9 +45,10 @@ class MapsFragment : FragmentWithLocationPermissions() {
     private lateinit var polygon: Polygon
     private lateinit var datepicker: MaterialDatePicker<Long>
     private lateinit var markers: ArrayList<Marker?>
+    private val callRequestPermissionCode: Int = 123456789
 
     private companion object CONSTANTS {
-        val DEFAULT_MAP_ZOOM: Float = 15f
+        val DEFAULT_MAP_ZOOM: Float = 9f
     }
 
     override fun onCreateView(
@@ -62,6 +62,7 @@ class MapsFragment : FragmentWithLocationPermissions() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         markers = ArrayList()
+
         datepicker = MaterialDatePicker.Builder.datePicker()
             .setTitleText("Seleccione una fecha")
             .build()
@@ -80,10 +81,12 @@ class MapsFragment : FragmentWithLocationPermissions() {
                 saveLocation(latitud, longitud)
                 val newLatLng = LatLng(latitud, longitud)
                 map.addMarker(
-                    MarkerOptions()
-                        .position(newLatLng)
+                    createMarker(newLatLng)
                 )
                 map.moveCamera(CameraUpdateFactory.newLatLngZoom(newLatLng, DEFAULT_MAP_ZOOM))
+                if (isLocationInsidePolygon(newLatLng)) {
+                    makePhoneCallWithPermission()
+                }
                 println("" + latitud + "    " + longitud)
 
             }
@@ -130,7 +133,7 @@ class MapsFragment : FragmentWithLocationPermissions() {
         markers.clear()
     }
 
-    private fun showStoredLocationsByDate(timestamp:Long) {
+    private fun showStoredLocationsByDate(timestamp: Long) {
         lifecycleScope.launch {
             withContext(Dispatchers.IO) {
                 ubicacionDao.getAllByDate(timestamp).let { list ->
@@ -142,7 +145,7 @@ class MapsFragment : FragmentWithLocationPermissions() {
                                     if (ubicacion != null) {
                                         markers.add(
                                             map.addMarker(
-                                                MarkerOptions().position(
+                                                createMarker(
                                                     LatLng(
                                                         ubicacion.latitud,
                                                         ubicacion.longitud
@@ -153,9 +156,11 @@ class MapsFragment : FragmentWithLocationPermissions() {
                                     }
                                 }
                             } else {
-                                Toast.makeText(activity,
+                                Toast.makeText(
+                                    activity,
                                     "No existen ubicaciones registradas para la fecha indicada",
-                                    Toast.LENGTH_SHORT).show()
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             }
                         }
                     }
@@ -172,7 +177,7 @@ class MapsFragment : FragmentWithLocationPermissions() {
                         withContext(Dispatchers.Main) {
                             markers.add(
                                 map.addMarker(
-                                    MarkerOptions().position(
+                                    createMarker(
                                         LatLng(ubicacion.latitud, ubicacion.longitud)
                                     )
                                 )
@@ -182,6 +187,17 @@ class MapsFragment : FragmentWithLocationPermissions() {
                 }
             }
         }
+    }
+
+    private fun createMarker(coords: LatLng): MarkerOptions {
+        val markOpts = MarkerOptions().position(coords)
+        if (isLocationInsidePolygon(coords)) {
+            markOpts.icon(
+                BitmapDescriptorFactory
+                    .defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
+            )
+        }
+        return markOpts
     }
 
     private fun saveLocation(lat: Double, lng: Double) {
@@ -224,4 +240,41 @@ class MapsFragment : FragmentWithLocationPermissions() {
         }
     }
 
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+            && requestCode == callRequestPermissionCode
+        ) {
+            makePhoneCall()
+        } else {
+            // El usuario no concedió el permiso
+        }
+    }
+
+    fun makePhoneCall() {
+        val intent = Intent(Intent.ACTION_CALL)
+        if ((activity as MainActivity).telefonoEmergencia != null) {
+            val phoneNumber = (activity as MainActivity).telefonoEmergencia
+            intent.data = Uri.parse("tel:$phoneNumber")
+            startActivity(intent)
+        }
+    }
+
+
+    fun makePhoneCallWithPermission() {
+        val permission = android.Manifest.permission.CALL_PHONE
+        if (ContextCompat.checkSelfPermission(requireContext(), permission)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(requireActivity(),
+                arrayOf(permission), 1)
+        } else {
+            makePhoneCall()
+        }
+
+    }
 }
